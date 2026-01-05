@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: gamedb
+      POSTGRES_USER: gameuser
+      POSTGRES_PASSWORD: gamepassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      
+  # Исправляем здесь!
+  game-server:
+    build: ./game-server
+    ports:
+      - "5000:8080"  # Было "5000:80", меняем на "5000:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=gamedb;Username=gameuser;Password=gamepassword"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
