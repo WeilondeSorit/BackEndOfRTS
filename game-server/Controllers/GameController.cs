@@ -1,46 +1,68 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 [ApiController]
 [Route("api/[controller]")]
 public class GameController : ControllerBase
 {
-    // Тестовый метод
+    private readonly GameDbContext _dbContext;
+    private readonly ILogger<GameController> _logger;
+
+    public GameController(GameDbContext dbContext, ILogger<GameController> logger)
+    {
+        _dbContext = dbContext;
+        _logger = logger;
+    }
+
     [HttpGet("test")]
     public IActionResult Test()
     {
         return Ok(new { 
-            message = "Game server is working!",
+            message = "Game server with Redis is working!",
             status = "OK",
             timestamp = DateTime.UtcNow,
-            port = "8080"
+            database = "Redis"
         });
     }
-    
-    // Простой метод для сохранения (упрощенный)
-    [HttpPost("save")]
-    public IActionResult SaveGame([FromBody] object gameData)
+
+    [HttpPost("save/{playerId}")]
+    public async Task<IActionResult> SaveGame(string playerId, [FromBody] GameState gameState)
     {
-        return Ok(new { 
-            success = true, 
-            message = "Game saved!",
-            received = DateTime.UtcNow
-        });
+        if (gameState == null)
+            return BadRequest(new { error = "Game state is required" });
+
+        var success = await _dbContext.SaveGameStateAsync(playerId, gameState);
+        
+        return success 
+            ? Ok(new { success = true, message = "Game saved to Redis", playerId })
+            : StatusCode(500, new { success = false, message = "Failed to save game" });
     }
-    
-    // Простой метод для загрузки
+
     [HttpGet("load/{playerId}")]
-    public IActionResult LoadGame(string playerId)
+    public async Task<IActionResult> LoadGame(string playerId)
     {
-        return Ok(new { 
-            playerId = playerId,
-            playerName = "TestPlayer",
-            units = 100,
-            food = 50,
-            wood = 75,
-            rock = 25,
-            buildings = new[] {
-                new { id = "1", buildingType = "Farm", coordX = 10, coordY = 10 }
-            }
-        });
+        var gameState = await _dbContext.LoadGameStateAsync(playerId);
+        
+        if (gameState?.PlayerData == null)
+            return NotFound(new { error = "Game not found", playerId });
+
+        return Ok(gameState);
+    }
+
+    [HttpDelete("delete/{playerId}")]
+    public async Task<IActionResult> DeleteGame(string playerId)
+    {
+        var success = await _dbContext.DeleteGameStateAsync(playerId);
+        
+        return success 
+            ? Ok(new { success = true, message = "Game data deleted from Redis" })
+            : StatusCode(500, new { success = false, message = "Failed to delete game" });
+    }
+
+    [HttpGet("exists/{playerId}")]
+    public async Task<IActionResult> GameExists(string playerId)
+    {
+        var exists = await _dbContext.GameExistsAsync(playerId);
+        return Ok(new { exists });
     }
 }

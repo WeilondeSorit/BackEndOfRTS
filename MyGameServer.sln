@@ -1,0 +1,29 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "game-server", "game-server", "{57455FD7-BE6C-BC3C-8843-871EB9603522}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameServer", "game-server\GameServer.csproj", "{DA111103-A253-2E60-A71E-11811F1EE45C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DA111103-A253-2E60-A71E-11811F1EE45C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DA111103-A253-2E60-A71E-11811F1EE45C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DA111103-A253-2E60-A71E-11811F1EE45C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DA111103-A253-2E60-A71E-11811F1EE45C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{DA111103-A253-2E60-A71E-11811F1EE45C} = {57455FD7-BE6C-BC3C-8843-871EB9603522}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C922CBC0-EF7D-4515-9599-430B6D9EC98E}
+	EndGlobalSection
+EndGlobal
