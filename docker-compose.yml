@@ -1,6 +1,18 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: Game_db
+      POSTGRES_USER: gameuser
+      POSTGRES_PASSWORD: gamepassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
   redis:
     image: redis:7-alpine
     ports:
@@ -8,7 +20,7 @@ services:
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
-    
+
   game-server:
     build: ./game-server
     ports:
@@ -18,6 +30,18 @@ services:
       RedisConnection: "redis:6379,abortConnect=false"
     depends_on:
       - redis
+      - postgres
+
+  player-service:
+    build: ./player-service
+    ports:
+      - "5001:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=Game_db;Username=gameuser;Password=gamepassword"
+    depends_on:
+      - postgres
 
 volumes:
+  postgres_data:
   redis_data:
