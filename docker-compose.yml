@@ -1,47 +1,107 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
   postgres:
-    image: postgres:15
+    image: postgres:15-alpine
+    container_name: postgres_db
     environment:
-      POSTGRES_DB: Game_db
-      POSTGRES_USER: gameuser
-      POSTGRES_PASSWORD: gamepassword
+      POSTGRES_DB: game_db
+      POSTGRES_USER: game_user
+      POSTGRES_PASSWORD: game_password
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - game_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U game_user -d game_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # Redis Cache
   redis:
-    image: redis:7-alpine
+    image: redis:8.4.0-alpine
+    container_name: redis_cache
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
+    networks:
+      - game_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # Game Server (Real-time sessions)
   game-server:
-    build: ./game-server
+    build:
+      context: ./game-server
+      dockerfile: Dockerfile
+    container_name: game_server
     ports:
-      - "5000:8080"
+      - "8081:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      RedisConnection: "redis:6379,abortConnect=false"
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Redis__Connection=redis:6379
+      - Redis__Password=
     depends_on:
-      - redis
-      - postgres
+      redis:
+        condition: service_healthy
+    networks:
+      - game_network
+    restart: unless-stopped
 
+  # Player Service (User profiles, progress)
   player-service:
-    build: ./player-service
+    build:
+      context: ./player-service
+      dockerfile: Dockerfile
+    container_name: player_service
     ports:
-      - "5001:8080"
+      - "8082:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: "Host=postgres;Database=Game_db;Username=gameuser;Password=gamepassword"
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=game_db;Username=game_user;Password=game_password
+      - Jwt__Key=your-super-secret-jwt-key-min-32-chars
+      - Jwt__Issuer=http://localhost:8082
+      - Jwt__Audience=http://localhost:8082
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    networks:
+      - game_network
+    restart: unless-stopped
+
+  # Statistics Service (Leaderboard, logs, errors)
+  statistics-service:
+    build:
+      context: ./statistics-service
+      dockerfile: Dockerfile
+    container_name: statistics_service
+    ports:
+      - "8083:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=game_db;Username=game_user;Password=game_password
+      - Redis__Connection=redis:6379
+      - Redis__Password=
+      - Logging__RetentionDays=7
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - game_network
+    restart: unless-stopped
 
 volumes:
   postgres_data:
-  redis_data:
+
+networks:
+  game_network:
+    driver: bridge
