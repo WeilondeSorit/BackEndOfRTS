@@ -29,3 +29,103 @@ docker-compose down
 
 # Просмотр логов
 docker-compose logs -f
+```
+
+ER диаграмма: 
+
+┌─────────────────────────────────────────────────────────────────┐
+│                        POSTGRESQL (game_db)                      │
+│                         (Постоянное хранилище)                    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┴─────────────────────┐
+        │                                           │
+┌───────▼────────┐                        ┌────────▼────────┐
+│   СХЕМА:       │                        │   СХЕМА:        │
+│   public       │                        │   statistics    │
+│   (player-     │                        │   (statistics-  │
+│    service)    │                        │    service)     │
+└────────────────┘                        └─────────────────┘
+        │                                           │
+┌───────┴───────────────────────────────────────────┴────────┐
+│                                                              │
+│  ┌──────────────┐     ┌──────────────┐    ┌──────────────┐ │
+│  │   users      │     │user_profiles │    │    units     │ │
+│  ├──────────────┤     ├──────────────┤    ├──────────────┤ │
+│  │ id (PK)      │◄────│ user_id (FK) │    │ id (PK)      │ │
+│  │ email        │     │ level        │    │ name         │ │
+│  │ password_hash│     │ experience   │    │ type         │ │
+│  │ username     │     │ gold         │    │ base_hp      │ │
+│  │ created_at   │     │ gems         │    │ base_damage  │ │
+│  └──────────────┘     │ wins         │    │ cost         │ │
+│                       │ losses       │    └──────────────┘ │
+│                       │ rank         │                     │
+│                       └──────────────┘                     │
+│                              │                              │
+│  ┌──────────────┐     ┌──────┴──────┐    ┌──────────────┐ │
+│  │  weapons     │     │  upgrades   │    │  inventory   │ │
+│  ├──────────────┤     ├──────────────┤    ├──────────────┤ │
+│  │ id (PK)      │     │ id (PK)      │    │ id (PK)      │ │
+│  │ name         │     │ user_id (FK) │    │ user_id (FK) │ │
+│  │ type         │     │ unit_id (FK) │    │ item_type    │ │
+│  │ base_damage  │     │ level        │    │ item_id      │ │
+│  │ rarity       │     │ damage_bonus │    │ quantity     │ │
+│  │ cost         │     │ hp_bonus     │    │ equipped     │ │
+│  └──────────────┘     └──────────────┘    └──────────────┘ │
+│                              │                              │
+│  ┌──────────────┐     ┌──────┴──────┐    ┌──────────────┐ │
+│  │game_sessions │     │transactions │    │player_stats  │ │
+│  ├──────────────┤     ├──────────────┤    ├──────────────┤ │
+│  │ id (PK)      │     │ id (PK)      │    │ id (PK)      │ │
+│  │ user_id (FK) │     │ user_id (FK) │    │ player_id    │ │
+│  │ session_id   │     │ type         │    │ username     │ │
+│  │ start_time   │     │ amount       │    │ wins         │ │
+│  │ end_time     │     │ currency     │    │ losses       │ │
+│  │ result       │     │ timestamp    │    │ total_matches│ │
+│  └──────────────┘     │ description  │    │ kills        │ │
+│                       └──────────────┘    │ deaths       │ │
+│                                           │ win_streak   │ │
+│                                           │ max_win_streak│ │
+│                                           │ last_updated │ │
+│                                           └──────┬───────┘ │
+│                                                  │          │
+│  ┌──────────────┐     ┌──────────────┐    ┌─────┴────────┐ │
+│  │match_results │     │ server_logs  │    │  error_logs  │ │
+│  ├──────────────┤     ├──────────────┤    ├──────────────┤ │
+│  │ id (PK)      │     │ id (PK)      │    │ id (PK)      │ │
+│  │ match_id     │     │ timestamp    │    │ timestamp    │ │
+│  │ player_id    │     │ level        │    │ error_message│ │
+│  │ is_win       │     │ message      │    │ stack_trace  │ │
+│  │ match_date   │     │ service_name │    │ service_name │ │
+│  │ duration_sec │     │ stack_trace  │    │ endpoint     │ │
+│  │ units_killed │     └──────────────┘    │ request_data │ │
+│  │ units_lost   │                         └──────────────┘ │
+│  │ base_destroyed│                                          │
+│  │ opponent_id  │                                          │
+│  └──────────────┘                                          │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                          REDIS                                   │
+│                   (Временное хранилище + кэш)                   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┴─────────────────────┐
+        │                                           │
+┌───────▼────────┐                        ┌────────▼────────┐
+│   Игровые      │                        │   Кэширование   │
+│   сессии       │                        │   и статусы     │
+│   (game-server)│                        │   (statistics)  │
+└────────────────┘                        └─────────────────┘
+        │                                           │
+│ session:{id}      │ Hash   │ Состояние сессии    │
+│ session:{id}:players│ Set  │ Игроки в сессии     │
+│ session:{id}:units │ Hash  │ Юниты на карте      │
+│ session:{id}:events│ List  │ История событий     │
+│ match:{id}:state  │ Hash   │ Состояние матча     │
+│                                                   │
+│ leaderboard:global│ ZSet   │ Кэш лидерборда      │
+│ player:{id}:stats │ Hash   │ Кэш статистики      │
+│ player:{id}:online│ String │ Статус онлайн       │
+│ rate_limit:{ip}   │ String │ Лимит запросов      │
+└───────────────────────────────────────────────────┘
