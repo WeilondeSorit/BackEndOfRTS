@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using StackExchange.Redis;
-using StatisticsService;
 using StatisticsService.Data;
 using StatisticsService.Services;
 
@@ -10,14 +9,6 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure Serilog for logging
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
-    .WriteTo.PostgreSQL(
-        connectionString: builder.Configuration.GetConnectionString("DefaultConnection"),
-        tableName: "server_logs",
-        needAutoCreateTable: true,
-        schemaName: "statistics",
-        useCopy: false,
-        batchSize: 100,
-        period: TimeSpan.FromSeconds(10))
     .Enrich.FromLogContext()
     .CreateLogger();
 

@@ -1,122 +1,82 @@
 using Microsoft.EntityFrameworkCore;
-using StackExchange.Redis;
-using StatisticsService.Data;
 using StatisticsService.Models;
 
-namespace StatisticsService.Services
+namespace StatisticsService.Data
 {
-    public class LeaderboardService : ILeaderboardService
+    public class StatisticsDbContext : DbContext
     {
-        private readonly StatisticsDbContext _context;
-        private readonly IConnectionMultiplexer _redis;
+        public StatisticsDbContext(DbContextOptions<StatisticsDbContext> options) : base(options) { }
 
-        public LeaderboardService(StatisticsDbContext context, IConnectionMultiplexer redis)
+        public DbSet<PlayerStats> PlayerStats { get; set; }
+        public DbSet<MatchResult> MatchResults { get; set; }
+        public DbSet<ServerLog> ServerLogs { get; set; }
+        public DbSet<ErrorLog> ErrorLogs { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            _context = context;
-            _redis = redis;
-        }
+            modelBuilder.HasDefaultSchema("statistics");
 
-        public async Task<List<LeaderboardEntry>> GetGlobalLeaderboardAsync(int limit = 100, int offset = 0)
-        {
-            var stats = await _context.PlayerStats
-                .OrderByDescending(s => s.Wins)
-                .ThenByDescending(s => s.WinRate)
-                .Skip(offset)
-                .Take(limit)
-                .ToListAsync();
-
-            var leaderboard = stats.Select((stat, index) => new LeaderboardEntry
+            // PlayerStats configuration
+            modelBuilder.Entity<PlayerStats>(entity =>
             {
-                Rank = offset + index + 1,
-                PlayerId = stat.PlayerId,
-                Username = stat.Username,
-                Wins = stat.Wins,
-                Losses = stat.Losses,
-                TotalMatches = stat.TotalMatches,
-                WinRate = stat.WinRate,
-                Kills = stat.Kills,
-                WinStreak = stat.WinStreak,
-                LastUpdated = stat.LastUpdated
-            }).ToList();
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.PlayerId).IsRequired();
+                entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Wins).HasDefaultValue(0);
+                entity.Property(e => e.Losses).HasDefaultValue(0);
+                entity.Property(e => e.TotalMatches).HasDefaultValue(0);
+                entity.Property(e => e.Kills).HasDefaultValue(0);
+                entity.Property(e => e.Deaths).HasDefaultValue(0);
+                entity.Property(e => e.LastUpdated).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                
+                entity.HasIndex(e => e.Wins).IsDescending();
+                entity.HasIndex(e => e.PlayerId).IsUnique();
+            });
 
-            return leaderboard;
-        }
-
-        public async Task<List<LeaderboardEntry>> GetTopPlayersAsync(int count = 10)
-        {
-            return await GetGlobalLeaderboardAsync(count, 0);
-        }
-
-        public async Task<LeaderboardEntry?> GetPlayerRankAsync(Guid playerId)
-        {
-            var playerStat = await _context.PlayerStats.FirstOrDefaultAsync(s => s.PlayerId == playerId);
-            if (playerStat == null)
-                return null;
-
-            var betterPlayersCount = await _context.PlayerStats
-                .CountAsync(s => s.Wins > playerStat.Wins || 
-                               (s.Wins == playerStat.Wins && s.WinRate > playerStat.WinRate));
-
-            return new LeaderboardEntry
+            // MatchResults configuration
+            modelBuilder.Entity<MatchResult>(entity =>
             {
-                Rank = betterPlayersCount + 1,
-                PlayerId = playerStat.PlayerId,
-                Username = playerStat.Username,
-                Wins = playerStat.Wins,
-                Losses = playerStat.Losses,
-                TotalMatches = playerStat.TotalMatches,
-                WinRate = playerStat.WinRate,
-                Kills = playerStat.Kills,
-                WinStreak = playerStat.WinStreak,
-                LastUpdated = playerStat.LastUpdated
-            };
-        }
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.MatchId).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.PlayerId).IsRequired();
+                entity.Property(e => e.IsWin).IsRequired();
+                entity.Property(e => e.MatchDate).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(e => e.DurationSeconds).IsRequired();
+                entity.Property(e => e.UnitsKilled).HasDefaultValue(0);
+                entity.Property(e => e.UnitsLost).HasDefaultValue(0);
+                entity.Property(e => e.BaseDestroyed).HasDefaultValue(false);
+                
+                entity.HasIndex(e => e.PlayerId);
+                entity.HasIndex(e => e.MatchDate);
+            });
 
-        public async Task UpdatePlayerStatsAsync(Guid playerId, string username, bool isWin, int kills = 0)
-        {
-            var playerStat = await _context.PlayerStats.FirstOrDefaultAsync(s => s.PlayerId == playerId);
-
-            if (playerStat == null)
+            // ServerLogs configuration
+            modelBuilder.Entity<ServerLog>(entity =>
             {
-                playerStat = new PlayerStats
-                {
-                    PlayerId = playerId,
-                    Username = username,
-                    Wins = 0,
-                    Losses = 0,
-                    TotalMatches = 0,
-                    Kills = 0,
-                    WinStreak = 0,
-                    MaxWinStreak = 0
-                };
-                _context.PlayerStats.Add(playerStat);
-            }
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Timestamp).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(e => e.Level).IsRequired().HasMaxLength(20);
+                entity.Property(e => e.Message).IsRequired();
+                entity.Property(e => e.ServiceName).HasMaxLength(50);
+                entity.Property(e => e.StackTrace);
+                
+                entity.HasIndex(e => e.Timestamp);
+                entity.HasIndex(e => e.Level);
+            });
 
-            playerStat.Username = username;
-            playerStat.TotalMatches++;
-            
-            if (isWin)
+            // ErrorLogs configuration
+            modelBuilder.Entity<ErrorLog>(entity =>
             {
-                playerStat.Wins++;
-                playerStat.WinStreak++;
-                if (playerStat.WinStreak > playerStat.MaxWinStreak)
-                    playerStat.MaxWinStreak = playerStat.WinStreak;
-            }
-            else
-            {
-                playerStat.Losses++;
-                playerStat.WinStreak = 0;
-            }
-
-            playerStat.Kills += kills;
-            playerStat.LastUpdated = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-        }
-
-        public async Task<int> GetTotalPlayersAsync()
-        {
-            return await _context.PlayerStats.CountAsync();
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Timestamp).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(e => e.ErrorMessage).IsRequired();
+                entity.Property(e => e.StackTrace).IsRequired();
+                entity.Property(e => e.ServiceName).HasMaxLength(50);
+                entity.Property(e => e.Endpoint).HasMaxLength(200);
+                
+                entity.HasIndex(e => e.Timestamp);
+                entity.HasIndex(e => e.ServiceName);
+            });
         }
     }
 }

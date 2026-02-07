@@ -45,7 +45,7 @@ namespace StatisticsService.Controllers
                 // Update player stats
                 await _leaderboardService.UpdatePlayerStatsAsync(
                     result.PlayerId,
-                    result.PlayerId.ToString(), // In production, get actual username
+                    result.PlayerId.ToString(),
                     result.IsWin,
                     result.UnitsKilled);
 

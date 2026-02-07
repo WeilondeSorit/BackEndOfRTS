@@ -23,7 +23,7 @@ namespace StatisticsService.Models
         public int WinStreak { get; set; }
         public int MaxWinStreak { get; set; }
         
-        [Column(TypeName = "decimal(5,2)")]
+        [NotMapped]
         public decimal WinRate => TotalMatches > 0 ? Math.Round((decimal)Wins / TotalMatches * 100, 2) : 0;
         
         public DateTime LastUpdated { get; set; }

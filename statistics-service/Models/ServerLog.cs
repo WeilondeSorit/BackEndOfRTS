@@ -12,13 +12,13 @@ namespace StatisticsService.Models
         
         [Required]
         [MaxLength(20)]
-        public string Level { get; set; } = string.Empty; // Info, Warning, Error, Critical
+        public string Level { get; set; } = string.Empty;
         
         [Required]
         public string Message { get; set; } = string.Empty;
         
         [MaxLength(50)]
-        public string? ServiceName { get; set; } // game-server, player-service, statistics-service
+        public string? ServiceName { get; set; }
         
         public string? StackTrace { get; set; }
     }

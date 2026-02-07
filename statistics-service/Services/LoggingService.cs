@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using StatisticsService.Data;
 using StatisticsService.Models;
 
