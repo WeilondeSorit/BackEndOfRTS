@@ -16,6 +16,12 @@ namespace StatisticsService.Data
         {
             modelBuilder.HasDefaultSchema("statistics");
 
+            // Явно указываем имена таблиц в формате snake_case
+            modelBuilder.Entity<PlayerStats>().ToTable("player_stats");
+            modelBuilder.Entity<MatchResult>().ToTable("match_results");
+            modelBuilder.Entity<ServerLog>().ToTable("server_logs");
+            modelBuilder.Entity<ErrorLog>().ToTable("error_logs");
+
             // PlayerStats configuration
             modelBuilder.Entity<PlayerStats>(entity =>
             {
