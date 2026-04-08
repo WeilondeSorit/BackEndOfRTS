@@ -1,0 +1,54 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using GameShared;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Http;
+using StatsServer.Data;
+using StatsServer.Services;
+using StackExchange.Redis;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// PostgreSQL - используем индексатор вместо GetConnectionString
+var connectionString = builder.Configuration["ConnectionStrings:Postgres"];
+builder.Services.AddDbContext<StatsDbContext>(options =>
+    options.UseNpgsql(connectionString));
+
+// Redis
+var redisConnectionString = builder.Configuration["Redis:ConnectionString"];
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+    ConnectionMultiplexer.Connect(redisConnectionString));
+
+// gRPC
+builder.Services.AddGrpc();
+
+var app = builder.Build();
+
+// gRPC сервис
+app.MapGrpcService<StatsServiceImpl>();
+
+// REST leaderboard
+app.MapGet("/leaderboard", async (int limit, IConnectionMultiplexer redis, StatsDbContext db) =>
+{
+    var redisDb = redis.GetDatabase();
+    var entries = await redisDb.SortedSetRangeByRankWithScoresAsync("leaderboard", order: Order.Descending, stop: limit - 1);
+    var result = new List<object>();
+    foreach (var entry in entries)
+    {
+        if (Guid.TryParse(entry.Element, out var playerId))
+        {
+            var player = await db.Players.FindAsync(playerId);
+            if (player != null)
+            {
+                result.Add(new { player.Login, player.Wins, player.Experience });
+            }
+        }
+    }
+    return Results.Ok(result);
+});
+
+app.Run();

@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option csharp_namespace = "GameShared";
+
+service StatsService {
+  rpc ReportGameResult (GameResultRequest) returns (Empty);
+}
+
+message GameResultRequest {
+  string player_id = 1;
+  bool is_win = 2;
+  int32 experience_gained = 3;
+}
+
+message Empty {}
