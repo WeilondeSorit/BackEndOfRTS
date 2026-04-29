@@ -1,4 +1,6 @@
--- postgres/init.sql
+-- =============================================
+-- Таблица игроков
+-- =============================================
 CREATE TABLE IF NOT EXISTS "Players" (
     "Id" UUID PRIMARY KEY,
     "Login" TEXT NOT NULL UNIQUE,
@@ -6,11 +8,12 @@ CREATE TABLE IF NOT EXISTS "Players" (
     "Experience" INTEGER NOT NULL DEFAULT 0,
     "Currency" INTEGER NOT NULL DEFAULT 100,
     "Wins" INTEGER NOT NULL DEFAULT 0,
-    "Losses" INTEGER NOT NULL DEFAULT 0,
-    "PurchasedItemsJson" TEXT NOT NULL DEFAULT '[]',
-    "UnitUpgradesJson" TEXT NOT NULL DEFAULT '{}'
+    "Losses" INTEGER NOT NULL DEFAULT 0
 );
 
+-- =============================================
+-- Товары магазина (скины/улучшения)
+-- =============================================
 CREATE TABLE IF NOT EXISTS "ShopItems" (
     "Id" SERIAL PRIMARY KEY,
     "Name" TEXT NOT NULL,
@@ -18,8 +21,90 @@ CREATE TABLE IF NOT EXISTS "ShopItems" (
     "ImagePath" TEXT NOT NULL
 );
 
--- Добавьте пару товаров в магазин
-INSERT INTO "ShopItems" ("Name", "Price", "ImagePath") VALUES 
-('Sword', 50, '/images/sword.png'),
-('Shield', 80, '/images/shield.png')
-ON CONFLICT DO NOTHING;
+-- =============================================
+-- Покупки игроков (многие-ко-многим)
+-- =============================================
+CREATE TABLE IF NOT EXISTS "PurchasedItems" (
+    "PlayerId" UUID NOT NULL REFERENCES "Players"("Id") ON DELETE CASCADE,
+    "ItemId" INTEGER NOT NULL REFERENCES "ShopItems"("Id") ON DELETE CASCADE,
+    PRIMARY KEY ("PlayerId", "ItemId")
+);
+
+-- =============================================
+-- История матчей
+-- =============================================
+CREATE TABLE IF NOT EXISTS "Matches" (
+    "Id" BIGSERIAL PRIMARY KEY,
+    "PlayerId" UUID NOT NULL REFERENCES "Players"("Id") ON DELETE CASCADE,
+    "IsWin" BOOLEAN NOT NULL,
+    "ExperienceGained" INTEGER NOT NULL,
+    "CurrencyGained" INTEGER NOT NULL DEFAULT 0,
+    "Timestamp" TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- =============================================
+-- Справочник юнитов
+-- =============================================
+CREATE TABLE IF NOT EXISTS "Units" (
+    "Id" SERIAL PRIMARY KEY,
+    "Name" TEXT NOT NULL UNIQUE,
+    "BaseHealth" INTEGER NOT NULL,
+    "BaseDamage" INTEGER NOT NULL
+);
+
+-- =============================================
+-- Уровни прокачки юнитов для игрока
+-- =============================================
+CREATE TABLE IF NOT EXISTS "PlayerUnitUpgrades" (
+    "PlayerId" UUID NOT NULL REFERENCES "Players"("Id") ON DELETE CASCADE,
+    "UnitId" INTEGER NOT NULL REFERENCES "Units"("Id") ON DELETE CASCADE,
+    "Level" INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY ("PlayerId", "UnitId")
+);
+
+-- =============================================
+-- Справочник зданий
+-- =============================================
+CREATE TABLE IF NOT EXISTS "Buildings" (
+    "Id" SERIAL PRIMARY KEY,
+    "Name" TEXT NOT NULL UNIQUE,
+    "BaseHp" INTEGER NOT NULL,
+    "BaseProduction" INTEGER NOT NULL,
+    "UpgradeCost" INTEGER NOT NULL
+);
+
+-- =============================================
+-- Уровни улучшения зданий для игрока
+-- =============================================
+CREATE TABLE IF NOT EXISTS "PlayerBuildingUpgrades" (
+    "PlayerId" UUID NOT NULL REFERENCES "Players"("Id") ON DELETE CASCADE,
+    "BuildingId" INTEGER NOT NULL REFERENCES "Buildings"("Id") ON DELETE CASCADE,
+    "Level" INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY ("PlayerId", "BuildingId")
+);
+
+-- =============================================
+-- НОВОЕ: Справочник достижений
+-- =============================================
+CREATE TABLE IF NOT EXISTS "Achievements" (
+    "Id" SERIAL PRIMARY KEY,
+    "Name" TEXT NOT NULL UNIQUE,
+    "Description" TEXT NOT NULL,
+    "RequiredValue" INTEGER NOT NULL,     -- например, количество побед или опыта
+    "RewardCurrency" INTEGER NOT NULL DEFAULT 0,
+    "RewardExperience" INTEGER NOT NULL DEFAULT 0
+);
+
+-- =============================================
+-- НОВОЕ: Выданные игрокам достижения (многие-ко-многим)
+-- =============================================
+CREATE TABLE IF NOT EXISTS "PlayerAchievements" (
+    "PlayerId" UUID NOT NULL REFERENCES "Players"("Id") ON DELETE CASCADE,
+    "AchievementId" INTEGER NOT NULL REFERENCES "Achievements"("Id") ON DELETE CASCADE,
+    "UnlockedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY ("PlayerId", "AchievementId")
+);
+
+-- Индексы для ускорения
+CREATE INDEX IF NOT EXISTS idx_player_achievements_player ON "PlayerAchievements" ("PlayerId");
+CREATE INDEX IF NOT EXISTS idx_player_achievements_achievement ON "PlayerAchievements" ("AchievementId");

@@ -13,7 +13,7 @@ using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// PostgreSQL - используем индексатор вместо GetConnectionString
+// PostgreSQL
 var connectionString = builder.Configuration["ConnectionStrings:Postgres"];
 builder.Services.AddDbContext<StatsDbContext>(options =>
     options.UseNpgsql(connectionString));
@@ -31,24 +31,37 @@ var app = builder.Build();
 // gRPC сервис
 app.MapGrpcService<StatsServiceImpl>();
 
-// REST leaderboard
-app.MapGet("/leaderboard", async (int limit, IConnectionMultiplexer redis, StatsDbContext db) =>
+// Тестовый endpoint для проверки работы сервера
+app.MapGet("/ping", () => "pong");
+
+// REST leaderboard — возвращает только 4 лучших игрока
+app.MapGet("/leaderboard", async (IConnectionMultiplexer redis, StatsDbContext db) =>
 {
-    var redisDb = redis.GetDatabase();
-    var entries = await redisDb.SortedSetRangeByRankWithScoresAsync("leaderboard", order: Order.Descending, stop: limit - 1);
-    var result = new List<object>();
-    foreach (var entry in entries)
+    try
     {
-        if (Guid.TryParse(entry.Element, out var playerId))
+        const int limit = 4;
+        var redisDb = redis.GetDatabase();
+        var entries = await redisDb.SortedSetRangeByRankWithScoresAsync("leaderboard", order: Order.Descending, stop: limit - 1);
+        var result = new List<object>();
+        foreach (var entry in entries)
         {
-            var player = await db.Players.FindAsync(playerId);
-            if (player != null)
+            if (Guid.TryParse(entry.Element, out var playerId))
             {
-                result.Add(new { player.Login, player.Wins, player.Experience });
+                var player = await db.Players.FindAsync(playerId);
+                if (player != null)
+                {
+                    result.Add(new { player.Login, player.Wins, player.Experience });
+                }
             }
         }
+        return Results.Ok(result);
     }
-    return Results.Ok(result);
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[ERROR] /leaderboard: {ex.Message}");
+        // Возвращаем пустой массив, чтобы клиент не падал
+        return Results.Ok(new List<object>());
+    }
 });
 
 app.Run();

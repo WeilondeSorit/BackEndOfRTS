@@ -32,7 +32,7 @@ services:
       context: .
       dockerfile: StatsServer/Dockerfile
     ports:
-      - "8081:8081"
+      - "8081:8080"
       - "5001:5001"
     depends_on:
       - postgres
@@ -46,7 +46,7 @@ services:
       context: .
       dockerfile: SessionServer/Dockerfile
     ports:
-      - "8082:8082"
+      - "8082:8080"
     depends_on:
       - redis
       - statsserver
