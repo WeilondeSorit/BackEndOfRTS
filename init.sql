@@ -105,6 +105,14 @@ CREATE TABLE IF NOT EXISTS "PlayerAchievements" (
     PRIMARY KEY ("PlayerId", "AchievementId")
 );
 
+-- Вставка тестовых игроков (если таблица уже есть)
+INSERT INTO "Players" ("Id", "Login", "PasswordHash", "Experience", "Currency", "Wins", "Losses")
+VALUES
+  ('1a2b3c4d-0000-0000-0000-000000000001', 'PlayerOne', 'pass', 500, 200, 10, 2),
+  ('1a2b3c4d-0000-0000-0000-000000000002', 'PlayerTwo', 'pass', 300, 150, 8, 3),
+  ('1a2b3c4d-0000-0000-0000-000000000003', 'PlayerThree', 'pass', 700, 300, 12, 5),
+  ('1a2b3c4d-0000-0000-0000-000000000004', 'PlayerFour', 'pass', 200, 100, 5, 1)
+ON CONFLICT ("Id") DO NOTHING;
 -- Индексы для ускорения
 CREATE INDEX IF NOT EXISTS idx_player_achievements_player ON "PlayerAchievements" ("PlayerId");
 CREATE INDEX IF NOT EXISTS idx_player_achievements_achievement ON "PlayerAchievements" ("AchievementId");
