@@ -33,14 +33,14 @@ services:
       dockerfile: StatsServer/Dockerfile
     ports:
       - "8081:8080"
-      - "5001:5001"
+
+    environment:
+      - ASPNETCORE_URLS=http://*:8080
+      - ConnectionStrings__Postgres=Host=postgres;Database=game_db;Username=postgres;Password=postgres
+      - Redis__ConnectionString=redis:6379
     depends_on:
       - postgres
       - redis
-    environment:
-      - ConnectionStrings__Postgres=Host=postgres;Database=game_db;Username=postgres;Password=postgres
-      - Redis__ConnectionString=redis:6379
-
   sessionserver:
     build:
       context: .

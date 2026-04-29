@@ -11,6 +11,5 @@ namespace StatsServer.Models
         public int Currency { get; set; }
         public int Wins { get; set; }
         public int Losses { get; set; }
-        // Другие поля не обязательны для статистики
     }
 }

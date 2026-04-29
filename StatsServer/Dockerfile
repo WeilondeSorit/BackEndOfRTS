@@ -1,23 +1,20 @@
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 80
-
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-ENV DOTNET_EnableRegexTimeout=false
-# Копируем csproj файлы с сохранением структуры папок
-COPY ["StatsServer/StatsServer.csproj", "StatsServer/"]
-COPY ["Shared/Shared.csproj", "Shared/"]
-RUN dotnet restore "StatsServer/StatsServer.csproj"
 
+# Копируем csproj отдельно для restore
+COPY StatsServer/StatsServer.csproj StatsServer/
+RUN dotnet restore StatsServer/StatsServer.csproj
+
+# Копируем всё остальное (включая папку Proto)
 COPY . .
-WORKDIR "/src/StatsServer"
+
+WORKDIR /src/StatsServer
 RUN dotnet build "StatsServer.csproj" -c Release -o /app/build
 
 FROM build AS publish
 RUN dotnet publish "StatsServer.csproj" -c Release -o /app/publish
 
-FROM base AS final
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "StatsServer.dll"]
