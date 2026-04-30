@@ -186,7 +186,6 @@ app.MapGet("/player/{id:guid}/quest", async (Guid id, AppDbContext db) =>
 
 
 
-// ✅ Регистрация (без JSON-полей)
 app.MapPost("/auth/register", async (RegisterRequest req, AppDbContext db) =>
 {
     if (await db.Players.AnyAsync(p => p.Login == req.Login))

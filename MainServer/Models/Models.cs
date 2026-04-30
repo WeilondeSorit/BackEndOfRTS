@@ -87,7 +87,6 @@ public class Player
         public int Level { get; set; } = 1;
     }
 
-    // ✅ Исправляет ошибку CS0246: тип Achievement не найден
     public class Achievement
     {
         public int Id { get; set; }
@@ -96,10 +95,10 @@ public class Player
         public int RequiredValue { get; set; }
         public int RewardCurrency { get; set; }
         public int RewardExperience { get; set; }
+        public string Key { get; set; }
         public virtual ICollection<PlayerAchievement> PlayerAchievements { get; set; } = new List<PlayerAchievement>();
     }
 
-    // ✅ Исправляет ошибку CS1061: отсутствие DbSet<PlayerAchievement>
     public class PlayerAchievement
     {
         public Guid PlayerId { get; set; }
