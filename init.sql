@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS "Players" (
 );
 
 -- =============================================
--- Товары магазина (скины/улучшения)
+-- Товары магазина
 -- =============================================
 CREATE TABLE IF NOT EXISTS "ShopItems" (
     "Id" SERIAL PRIMARY KEY,
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS "ShopItems" (
 );
 
 -- =============================================
--- Покупки игроков (многие-ко-многим)
+-- Покупки игроков
 -- =============================================
 CREATE TABLE IF NOT EXISTS "PurchasedItems" (
     "PlayerId" UUID NOT NULL REFERENCES "Players"("Id") ON DELETE CASCADE,
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS "Units" (
 );
 
 -- =============================================
--- Уровни прокачки юнитов для игрока
+-- Уровни прокачки юнитов
 -- =============================================
 CREATE TABLE IF NOT EXISTS "PlayerUnitUpgrades" (
     "PlayerId" UUID NOT NULL REFERENCES "Players"("Id") ON DELETE CASCADE,
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS "Buildings" (
 );
 
 -- =============================================
--- Уровни улучшения зданий для игрока
+-- Уровни улучшения зданий
 -- =============================================
 CREATE TABLE IF NOT EXISTS "PlayerBuildingUpgrades" (
     "PlayerId" UUID NOT NULL REFERENCES "Players"("Id") ON DELETE CASCADE,
@@ -84,28 +84,33 @@ CREATE TABLE IF NOT EXISTS "PlayerBuildingUpgrades" (
 );
 
 -- =============================================
--- НОВОЕ: Справочник достижений
+-- Справочник достижений
 -- =============================================
 CREATE TABLE IF NOT EXISTS "Achievements" (
     "Id" SERIAL PRIMARY KEY,
     "Name" TEXT NOT NULL UNIQUE,
     "Description" TEXT NOT NULL,
-    "RequiredValue" INTEGER NOT NULL,     -- например, количество побед или опыта
+    "RequiredValue" INTEGER NOT NULL,
     "RewardCurrency" INTEGER NOT NULL DEFAULT 0,
     "RewardExperience" INTEGER NOT NULL DEFAULT 0
 );
 
 -- =============================================
--- НОВОЕ: Выданные игрокам достижения (многие-ко-многим)
+-- Выданные достижения (с Progress и IsRewardClaimed сразу в схеме)
 -- =============================================
 CREATE TABLE IF NOT EXISTS "PlayerAchievements" (
     "PlayerId" UUID NOT NULL REFERENCES "Players"("Id") ON DELETE CASCADE,
     "AchievementId" INTEGER NOT NULL REFERENCES "Achievements"("Id") ON DELETE CASCADE,
     "UnlockedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+    "Progress" INTEGER NOT NULL DEFAULT 0,
+    "IsRewardClaimed" BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY ("PlayerId", "AchievementId")
 );
 
--- Вставка тестовых игроков (если таблица уже есть)
+CREATE INDEX IF NOT EXISTS idx_player_achievements_player ON "PlayerAchievements" ("PlayerId");
+CREATE INDEX IF NOT EXISTS idx_player_achievements_achievement ON "PlayerAchievements" ("AchievementId");
+
+-- Тестовые данные
 INSERT INTO "Players" ("Id", "Login", "PasswordHash", "Experience", "Currency", "Wins", "Losses")
 VALUES
   ('1a2b3c4d-0000-0000-0000-000000000001', 'PlayerOne', 'pass', 500, 200, 10, 2),
@@ -113,6 +118,15 @@ VALUES
   ('1a2b3c4d-0000-0000-0000-000000000003', 'PlayerThree', 'pass', 700, 300, 12, 5),
   ('1a2b3c4d-0000-0000-0000-000000000004', 'PlayerFour', 'pass', 200, 100, 5, 1)
 ON CONFLICT ("Id") DO NOTHING;
--- Индексы для ускорения
-CREATE INDEX IF NOT EXISTS idx_player_achievements_player ON "PlayerAchievements" ("PlayerId");
-CREATE INDEX IF NOT EXISTS idx_player_achievements_achievement ON "PlayerAchievements" ("AchievementId");
+-- Добавляем колонку Key (уникальный строковый идентификатор)
+ALTER TABLE "Achievements" ADD COLUMN IF NOT EXISTS "Key" TEXT UNIQUE;
+
+-- Вставляем достижения (если их ещё нет)
+INSERT INTO "Achievements" ("Name", "Description", "RequiredValue", "RewardCurrency", "RewardExperience", "Key")
+VALUES
+  ('Первая кровь', 'Уничтожьте первого вражеского юнита', 1, 100, 50, 'first_blood'),
+  ('Мастер ресурсов', 'Соберите 50 единиц ресурсов', 50, 200, 0, 'resource_master'),
+  ('Командир армии', 'Наберите 20 юнитов в армии', 20, 150, 100, 'unit_commander'),
+  ('Разрушитель баз', 'Уничтожьте вражескую базу', 1, 300, 150, 'base_destroyer')
+ON CONFLICT ("Key") DO NOTHING;
+
