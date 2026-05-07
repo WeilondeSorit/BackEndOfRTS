@@ -2,6 +2,8 @@ using StatsServer.Data;
 using StatsServer.Services;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
+using Microsoft.Extensions.DependencyInjection;   // <-- добавлено
+using GameShared;                               
 
 var builder = WebApplication.CreateBuilder(args);
 

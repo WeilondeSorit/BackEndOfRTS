@@ -80,7 +80,38 @@ bool IsPlayerAuthorized(HttpContext httpContext, Guid requestedPlayerId)
     var playerIdClaim = httpContext.User.FindFirst("playerId")?.Value;
     return playerIdClaim != null && Guid.TryParse(playerIdClaim, out var tokenPlayerId) && tokenPlayerId == requestedPlayerId;
 }
+// POST /player/{id}/battle-result – фиксация результата боя (победа/поражение)
+app.MapPost("/player/{id:guid}/battle-result", async (Guid id, BattleResultRequest req, HttpContext httpContext, AppDbContext db) =>
+{
+    if (!IsPlayerAuthorized(httpContext, id))
+        return Results.Forbid();
 
+    var player = await db.Players.FindAsync(id);
+    if (player == null) return Results.NotFound();
+
+    int expGain = req.IsWin ? 50 : 10;
+    int currencyGain = req.IsWin ? 20 : 5;
+
+    player.Experience += expGain;
+    player.Currency += currencyGain;
+    if (req.IsWin)
+        player.Wins++;
+    else
+        player.Losses++;
+
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new
+    {
+        player.Experience,
+        player.Currency,
+        player.Wins,
+        player.Losses,
+        expGain,
+        currencyGain,
+        message = req.IsWin ? "Победа! Награда получена." : "Поражение... Получено утешительное вознаграждение."
+    });
+}).RequireAuthorization();
 // ========== АВТОРИЗАЦИЯ ==========
 
 // Регистрация
@@ -341,3 +372,4 @@ public record RegisterRequest(string Login, string Password);
 public record LoginRequest(string Login, string Password);
 public record BuyRequest(int ItemId);
 public record AddProgressRequest(int Increment);
+public record BattleResultRequest(bool IsWin);

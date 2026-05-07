@@ -2,17 +2,12 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
-
   <ItemGroup>
-    <PackageReference Include="Google.Protobuf" Version="3.29.3" />
-    <PackageReference Include="Grpc.AspNetCore" Version="2.67.0" />
-    <PackageReference Include="Grpc.Tools" Version="2.67.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-    </PackageReference>
+    <PackageReference Include="Grpc.AspNetCore" Version="2.59.0" />
+    <PackageReference Include="Google.Protobuf" Version="3.25.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.59.0" PrivateAssets="all" />
   </ItemGroup>
-
   <ItemGroup>
-    <Protobuf Include="../Proto/stats.proto" ProtoRoot=".." GrpcServices="Both" />
+    <Protobuf Include="..\Proto\stats.proto" GrpcServices="Both" Link="stats.proto" />
   </ItemGroup>
 </Project>
