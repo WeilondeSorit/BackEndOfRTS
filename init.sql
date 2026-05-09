@@ -129,4 +129,9 @@ VALUES
   ('Командир армии', 'Наберите 20 юнитов в армии', 20, 150, 100, 'unit_commander'),
   ('Разрушитель баз', 'Уничтожьте вражескую базу', 1, 300, 150, 'base_destroyer')
 ON CONFLICT ("Key") DO NOTHING;
+INSERT INTO "ShopItems" ("Name", "Price", "ImagePath") VALUES
+('Улучшение зданий', 200, 'building_upgrade'),
+('Улучшение юнитов', 200, 'unit_upgrade'),
+('Боевое знамя', 150, 'battle_standard'),
+('Особый аватар', 100, 'special_avatar');
 

@@ -322,7 +322,6 @@ app.MapGet("/player/{id:guid}/quest", async (Guid id, HttpContext httpContext, A
 
 // ========== ДАННЫЕ ИГРОКА ==========
 
-// GET /player/{id} – получение данных игрока (защищён)
 app.MapGet("/player/{id:guid}", async (Guid id, HttpContext httpContext, AppDbContext db) =>
 {
     if (!IsPlayerAuthorized(httpContext, id))
@@ -331,24 +330,69 @@ app.MapGet("/player/{id:guid}", async (Guid id, HttpContext httpContext, AppDbCo
     var player = await db.Players.FindAsync(id);
     if (player == null) return Results.NotFound();
 
+    var purchasedIds = await db.PurchasedItems
+        .Where(p => p.PlayerId == id)
+        .Select(p => p.ItemId)
+        .ToListAsync();
+
     return Results.Ok(new
     {
         player.Experience,
         player.Currency,
         player.Wins,
         player.Losses,
-        PurchasedItems = new List<int>(),      // временно
-        UnitUpgrades = new Dictionary<string, int>() // временно
+        PurchasedItems = purchasedIds,
+        UnitUpgrades = new Dictionary<string, int>() // пока заглушка
     });
 }).RequireAuthorization();
 
-// POST /player/{id}/buy – покупки временно отключены (защищён)
-app.MapPost("/player/{id:guid}/buy", (Guid id, BuyRequest req, HttpContext httpContext, AppDbContext db) =>
+// POST /player/{id}/buy – покупка товара в магазине (защищён)
+app.MapPost("/player/{id:guid}/buy", async (Guid id, BuyRequest req, HttpContext httpContext, AppDbContext db) =>
 {
     if (!IsPlayerAuthorized(httpContext, id))
         return Results.Forbid();
 
-    return Results.BadRequest("Покупки временно отключены");
+    var player = await db.Players.FindAsync(id);
+    if (player == null) return Results.NotFound("Игрок не найден");
+
+    var shopItem = await db.ShopItems.FindAsync(req.ItemId);
+    if (shopItem == null) return Results.NotFound("Товар не найден");
+
+    // Проверяем, не куплен ли уже этот предмет
+    bool alreadyPurchased = await db.PurchasedItems.AnyAsync(p => p.PlayerId == id && p.ItemId == req.ItemId);
+    if (alreadyPurchased)
+        return Results.BadRequest("Предмет уже куплен");
+
+    if (player.Currency < shopItem.Price)
+        return Results.BadRequest("Недостаточно валюты");
+
+    // Списываем деньги
+    player.Currency -= shopItem.Price;
+
+    // Сохраняем покупку
+    var purchased = new PurchasedItem
+    {
+        PlayerId = id,
+        ItemId = req.ItemId
+    };
+    db.PurchasedItems.Add(purchased);
+    await db.SaveChangesAsync();
+
+    // Формируем актуальный список купленных ID
+    var purchasedIds = await db.PurchasedItems
+        .Where(p => p.PlayerId == id)
+        .Select(p => p.ItemId)
+        .ToListAsync();
+
+    return Results.Ok(new
+    {
+        player.Currency,
+        player.Experience,
+        player.Wins,
+        player.Losses,
+        PurchasedItems = purchasedIds,
+        Message = "Покупка совершена"
+    });
 }).RequireAuthorization();
 
 // ========== МАГАЗИН (открытый) ==========
